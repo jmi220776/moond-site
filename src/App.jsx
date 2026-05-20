@@ -1,18 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 
 // ============================================================
-// MOOND — Parcours d'entrée
+// MOOND — Parcours d'entrée (v2)
 // 1. Vidéo intro (11s) → 2. Landing MOOND → 3. Trois portes
+// Un seul bouton son en haut à gauche, contrôle vidéo PUIS musique
 // ============================================================
 
 export default function App() {
-  // Étapes du parcours : "video" → "landing" → "portes"
   const [step, setStep] = useState('video');
   const [videoStarted, setVideoStarted] = useState(false);
   const [showSkip, setShowSkip] = useState(false);
   const [showStart, setShowStart] = useState(false);
-  const [videoMuted, setVideoMuted] = useState(true);
-  const [siteSoundOn, setSiteSoundOn] = useState(false);
+  const [soundOn, setSoundOn] = useState(false);
 
   const videoRef = useRef(null);
   const audioRef = useRef(null);
@@ -29,7 +28,6 @@ export default function App() {
           setVideoStarted(true);
           setTimeout(() => setShowSkip(true), 2000);
         }).catch(() => {
-          // Autoplay bloqué → affiche bouton COMMENCER
           setShowStart(true);
         });
       }
@@ -39,7 +37,6 @@ export default function App() {
       tryPlay();
     } else {
       v.addEventListener('loadeddata', tryPlay, { once: true });
-      // Sécurité : retry après 1.5s
       const fallback = setTimeout(() => {
         if (v.paused) tryPlay();
       }, 1500);
@@ -47,26 +44,12 @@ export default function App() {
     }
   }, []);
 
-  // ========== TRANSITION VIDÉO → LANDING ==========
-  const goToLanding = () => {
-    setStep('landing');
-  };
-
-  // ========== TRANSITION LANDING → PORTES ==========
+  const goToLanding = () => setStep('landing');
   const goToPortes = () => {
     setStep('portes');
     window.scrollTo(0, 0);
   };
 
-  // ========== CONTRÔLE DU SON DE LA VIDÉO ==========
-  const toggleVideoSound = () => {
-    const v = videoRef.current;
-    if (!v) return;
-    v.muted = !v.muted;
-    setVideoMuted(v.muted);
-  };
-
-  // ========== DÉMARRAGE MANUEL VIDÉO (si autoplay bloqué) ==========
   const startVideo = () => {
     const v = videoRef.current;
     if (!v) return;
@@ -77,63 +60,79 @@ export default function App() {
     });
   };
 
-  // ========== AUDIO DU SITE (vhs-lullaby) ==========
-  useEffect(() => {
+  // ========== BOUTON SON UNIFIÉ ==========
+  const toggleSound = () => {
+    const v = videoRef.current;
     const a = audioRef.current;
-    if (!a) return;
+    const newState = !soundOn;
+    setSoundOn(newState);
 
-    if (step !== 'video' && siteSoundOn) {
-      a.play().catch(() => {});
+    if (step === 'video') {
+      if (v) v.muted = !newState;
     } else {
-      a.pause();
+      if (a) {
+        if (newState) {
+          a.play().catch(() => {});
+        } else {
+          a.pause();
+        }
+      }
     }
-  }, [step, siteSoundOn]);
-
-  const toggleSiteSound = () => {
-    setSiteSoundOn((prev) => !prev);
   };
+
+  // Au passage vidéo → landing, on bascule du son vidéo au son audio
+  useEffect(() => {
+    const v = videoRef.current;
+    const a = audioRef.current;
+    if (!v || !a) return;
+
+    if (step !== 'video') {
+      v.muted = true;
+      if (soundOn) {
+        a.play().catch(() => {});
+      }
+    }
+  }, [step]);
 
   return (
     <>
       <style>{styles}</style>
 
-      {/* ============ AUDIO DU SITE (boucle, démarre dès landing) ============ */}
       <audio ref={audioRef} src="/vhs-lullaby.mp3" loop preload="auto" />
 
-      {/* ============ LOGO + HAMBURGER (visibles dès landing) ============ */}
+      {/* ============ LOGO ============ */}
       <div className={`logo-corner ${step !== 'video' ? 'visible' : ''}`}>
         M<span className="o-accent">O</span>OND
       </div>
 
+      {/* ============ BOUTON SON — UNIQUE, TOUJOURS HAUT À GAUCHE ============ */}
+      <button
+        className="sound-btn"
+        onClick={toggleSound}
+        aria-label={soundOn ? 'Couper le son' : 'Activer le son'}
+      >
+        <svg viewBox="0 0 24 24">
+          {soundOn ? (
+            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
+          ) : (
+            <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.17v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" />
+          )}
+        </svg>
+      </button>
+
+      {/* ============ HAMBURGER ============ */}
       <div className={`menu-trigger ${step !== 'video' ? 'visible' : ''}`}>
         <span></span>
         <span></span>
         <span></span>
       </div>
 
-      {/* ============ BOUTON SON DU SITE (visible dès landing) ============ */}
-      {step !== 'video' && (
-        <button
-          className="site-sound-btn"
-          onClick={toggleSiteSound}
-          aria-label={siteSoundOn ? 'Couper le son' : 'Activer le son'}
-        >
-          <svg viewBox="0 0 24 24">
-            {siteSoundOn ? (
-              <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
-            ) : (
-              <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.17v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" />
-            )}
-          </svg>
-        </button>
-      )}
-
-      {/* ============ ÉCRAN 1 — VIDÉO INTRO ============ */}
+      {/* ============ ÉCRAN 1 — VIDÉO ============ */}
       <div className={`screen-video ${step !== 'video' ? 'fading' : ''}`}>
         <video
           ref={videoRef}
           autoPlay
-          muted={videoMuted}
+          muted
           playsInline
           preload="auto"
           disablePictureInPicture
@@ -142,7 +141,6 @@ export default function App() {
           <source src="/intro.mp4" type="video/mp4" />
         </video>
 
-        {/* Bouton COMMENCER si autoplay bloqué */}
         {showStart && (
           <button className="start-btn" onClick={startVideo}>
             <span>COMMENCER</span>
@@ -150,24 +148,6 @@ export default function App() {
           </button>
         )}
 
-        {/* Bouton son de la vidéo */}
-        {videoStarted && (
-          <button
-            className="video-sound-btn"
-            onClick={toggleVideoSound}
-            aria-label="Son de la vidéo"
-          >
-            <svg viewBox="0 0 24 24">
-              {!videoMuted ? (
-                <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z" />
-              ) : (
-                <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.17v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z" />
-              )}
-            </svg>
-          </button>
-        )}
-
-        {/* Bouton Passer */}
         {showSkip && (
           <button className="skip-btn" onClick={goToLanding}>
             Passer →
@@ -215,7 +195,6 @@ export default function App() {
         </div>
 
         <div className="portes-container">
-          {/* PORTE 1 — LA FAMILLE */}
           <a href="#famille" className="porte porte-famille" onClick={(e) => e.preventDefault()}>
             <div className="porte-icon">
               <svg viewBox="0 0 64 64" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none">
@@ -241,7 +220,6 @@ export default function App() {
             <div className="porte-arrow">→</div>
           </a>
 
-          {/* PORTE 2 — LES FRAGMENTS */}
           <a href="#fragments" className="porte porte-fragments" onClick={(e) => e.preventDefault()}>
             <div className="porte-icon">
               <svg viewBox="0 0 100 100">
@@ -262,7 +240,6 @@ export default function App() {
             <div className="porte-arrow">→</div>
           </a>
 
-          {/* PORTE 3 — LE MANIFESTE */}
           <a href="#manifeste" className="porte porte-manifeste" onClick={(e) => e.preventDefault()}>
             <div className="porte-icon">
               <svg viewBox="0 0 64 64">
@@ -306,9 +283,6 @@ export default function App() {
   );
 }
 
-// ============================================================
-// STYLES (injectés en CSS pur dans le composant)
-// ============================================================
 const styles = `
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Space+Mono:wght@400;700&display=swap');
 
@@ -320,11 +294,7 @@ const styles = `
   --black-deep: #0A0807;
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
 html, body, #root {
   background: var(--black);
@@ -336,7 +306,6 @@ html, body, #root {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Grain texture */
 body::before {
   content: '';
   position: fixed;
@@ -348,11 +317,11 @@ body::before {
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.6'/%3E%3C/svg%3E");
 }
 
-/* === LOGO === */
+/* === LOGO MOOND (haut à gauche, à côté du bouton son) === */
 .logo-corner {
   position: fixed;
   top: 28px;
-  left: 28px;
+  left: 78px;
   z-index: 100;
   font-family: 'Cinzel', serif;
   font-weight: 500;
@@ -363,13 +332,29 @@ body::before {
   transition: opacity 0.6s ease;
   pointer-events: none;
 }
-.logo-corner.visible {
-  opacity: 1;
-  pointer-events: auto;
+.logo-corner.visible { opacity: 1; pointer-events: auto; }
+.logo-corner .o-accent { color: var(--terracotta); }
+
+/* === BOUTON SON — UNIQUE, TOUJOURS HAUT À GAUCHE === */
+.sound-btn {
+  position: fixed;
+  top: 24px;
+  left: 24px;
+  z-index: 101;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: rgba(212, 80, 10, 0.9);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease, background 0.3s ease;
+  box-shadow: 0 4px 16px rgba(212, 80, 10, 0.25);
 }
-.logo-corner .o-accent {
-  color: var(--terracotta);
-}
+.sound-btn:hover { transform: scale(1.08); }
+.sound-btn svg { width: 18px; height: 18px; fill: var(--cream); }
 
 /* === HAMBURGER === */
 .menu-trigger {
@@ -389,10 +374,7 @@ body::before {
   transition: opacity 0.6s ease;
   pointer-events: none;
 }
-.menu-trigger.visible {
-  opacity: 1;
-  pointer-events: auto;
-}
+.menu-trigger.visible { opacity: 1; pointer-events: auto; }
 .menu-trigger span {
   display: block;
   height: 1.5px;
@@ -403,27 +385,6 @@ body::before {
 .menu-trigger span:nth-child(2) { width: 22px; }
 .menu-trigger span:nth-child(3) { width: 28px; }
 .menu-trigger:hover span { background: var(--terracotta); }
-
-/* === BOUTON SON SITE === */
-.site-sound-btn {
-  position: fixed;
-  bottom: 28px;
-  right: 28px;
-  z-index: 100;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: var(--terracotta);
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.2s ease, background 0.3s ease;
-  box-shadow: 0 4px 20px rgba(212, 80, 10, 0.3);
-}
-.site-sound-btn:hover { transform: scale(1.08); }
-.site-sound-btn svg { width: 22px; height: 22px; fill: var(--cream); }
 
 /* ====================================================== */
 /* SCREEN 1 — VIDÉO                                       */
@@ -445,7 +406,7 @@ body::before {
 .screen-video video {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   pointer-events: none;
 }
 .screen-video video::-webkit-media-controls,
@@ -454,13 +415,6 @@ body::before {
 .screen-video video::-webkit-media-controls-start-playback-button {
   display: none !important;
   -webkit-appearance: none !important;
-}
-.screen-video::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: radial-gradient(ellipse at center, transparent 50%, rgba(10,8,7,0.5) 100%);
 }
 
 .start-btn {
@@ -518,26 +472,6 @@ body::before {
   color: var(--terracotta);
 }
 
-.video-sound-btn {
-  position: absolute;
-  bottom: 32px;
-  left: 32px;
-  z-index: 60;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: rgba(212, 80, 10, 0.9);
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: fade-in-skip 0.4s ease forwards;
-  transition: transform 0.2s ease;
-}
-.video-sound-btn:hover { transform: scale(1.08); }
-.video-sound-btn svg { width: 20px; height: 20px; fill: var(--cream); }
-
 /* ====================================================== */
 /* SCREEN 2 — LANDING                                     */
 /* ====================================================== */
@@ -555,14 +489,8 @@ body::before {
   pointer-events: none;
   transition: opacity 1.4s ease;
 }
-.screen-landing.visible {
-  opacity: 1;
-  pointer-events: auto;
-}
-.screen-landing.fading {
-  opacity: 0;
-  pointer-events: none;
-}
+.screen-landing.visible { opacity: 1; pointer-events: auto; }
+.screen-landing.fading { opacity: 0; pointer-events: none; }
 
 .landing-halo {
   position: absolute;
@@ -681,9 +609,7 @@ body::before {
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
 }
-@keyframes fade-in {
-  to { opacity: 0.7; }
-}
+@keyframes fade-in { to { opacity: 0.7; } }
 
 /* ====================================================== */
 /* SCREEN 3 — TROIS PORTES                                */
@@ -700,10 +626,7 @@ body::before {
   pointer-events: none;
   transition: opacity 1.4s ease;
 }
-.screen-portes.visible {
-  opacity: 1;
-  pointer-events: auto;
-}
+.screen-portes.visible { opacity: 1; pointer-events: auto; }
 
 .portes-header {
   text-align: center;
@@ -891,12 +814,19 @@ body::before {
     margin-right: 14px;
   }
   .porte-icon svg { width: 44px; height: 44px; }
-  .menu-trigger, .logo-corner { top: 20px; }
-  .menu-trigger { right: 20px; }
-  .logo-corner { left: 20px; font-size: 18px; }
+
+  .sound-btn {
+    top: 18px;
+    left: 18px;
+    width: 34px;
+    height: 34px;
+  }
+  .sound-btn svg { width: 16px; height: 16px; }
+
+  .menu-trigger { top: 20px; right: 20px; }
+  .logo-corner { top: 22px; left: 64px; font-size: 17px; }
+
   .skip-btn { right: 20px; bottom: 20px; }
-  .video-sound-btn { left: 20px; bottom: 20px; }
-  .site-sound-btn { right: 20px; bottom: 20px; width: 44px; height: 44px; }
   .landing-footer { bottom: 24px; font-size: 9px; }
   .screen-portes { padding: 80px 16px 60px; }
 }
