@@ -37,6 +37,9 @@ export default function DressingModal({ personnage, onClose }) {
       </button>
       <div className="dressing-content">
         <img src={personnage.dressing} alt={`Dressing de ${personnage.name}`} />
+        <button className="dressing-back" onClick={onClose}>
+          ← RETOUR AUX PERSONNAGES
+        </button>
       </div>
 
       <style>{`
@@ -76,6 +79,33 @@ export default function DressingModal({ personnage, onClose }) {
           height: auto;
           box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
         }
+
+        .dressing-back {
+          display: block;
+          margin: 32px auto 0;
+          font-family: 'Cinzel', serif;
+          font-size: 11px;
+          letter-spacing: 0.3em;
+          color: var(--terracotta);
+          background: transparent;
+          border: 1px solid var(--terracotta);
+          padding: 16px 32px;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          position: relative;
+          overflow: hidden;
+        }
+        .dressing-back::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: var(--terracotta);
+          transform: translateX(-101%);
+          transition: transform 0.4s ease;
+          z-index: -1;
+        }
+        .dressing-back:hover::before { transform: translateX(0); }
+        .dressing-back:hover { color: var(--cream); }
 
         .dressing-close {
           position: fixed;
