@@ -10,7 +10,12 @@ import { useNavigate } from 'react-router-dom';
 export default function Home() {
   const navigate = useNavigate();
 
-  const [step, setStep] = useState('video');
+  // Si la vidéo intro a déjà été vue dans cette session, on saute direct aux portes
+  // (évite de revoir la vidéo en revenant de /famille)
+  const alreadyVisited = typeof window !== 'undefined' && sessionStorage.getItem('moond_visited') === '1';
+  const initialStep = alreadyVisited ? 'portes' : 'video';
+
+  const [step, setStep] = useState(initialStep);
   const [videoStarted, setVideoStarted] = useState(false);
   const [showSkip, setShowSkip] = useState(false);
   const [showStart, setShowStart] = useState(false);
@@ -21,6 +26,9 @@ export default function Home() {
 
   // ========== AUTOPLAY VIDÉO ==========
   useEffect(() => {
+    // Si on a sauté la vidéo, pas besoin de la lancer
+    if (initialStep === 'portes') return;
+
     const v = videoRef.current;
     if (!v) return;
 
@@ -45,10 +53,14 @@ export default function Home() {
       }, 1500);
       return () => clearTimeout(fallback);
     }
-  }, []);
+  }, [initialStep]);
 
   const goToLanding = () => setStep('landing');
   const goToPortes = () => {
+    // Marquer la session comme "déjà visitée" pour qu'un retour aux portes ne relance pas la vidéo
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('moond_visited', '1');
+    }
     setStep('portes');
     window.scrollTo(0, 0);
   };
